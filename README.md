@@ -21,11 +21,23 @@ pnpm install
 
 ## Environment Setup
 
-Create a `.env.local` file with the required environment variables:
+### Getting a Stability AI API Key
+
+1. Visit [Stability AI Platform](https://platform.stability.ai)
+2. Click "Sign Up" if you don't have an account, or "Log In" if you do
+3. After logging in, go to your [Account Settings](https://platform.stability.ai/account)
+4. In the API Keys section, click "Create API Key"
+5. Copy your newly generated API key
+
+### Setting Up Environment Variables
+
+Create a `.env.local` file with the following environment variables:
 
 ```env
-# Add your environment variables here
+STABILITY_API_KEY=your_api_key_here
 ```
+
+Replace `your_api_key_here` with the API key you obtained from Stability AI.
 
 ## Development
 
