@@ -13,6 +13,29 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 	const [apiKeyError, setApiKeyError] = useState('')
 	const [hasBackendApiKey, setHasBackendApiKey] = useState(false)
 	const [checkingApiKey, setCheckingApiKey] = useState(true)
+	const [balance, setBalance] = useState<number | null>(null)
+	const [checkingBalance, setCheckingBalance] = useState(false)
+
+	const checkBalance = async (key?: string) => {
+		setCheckingBalance(true)
+		try {
+			const response = await fetch('/api/check-balance', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({apiKey: key}),
+			})
+			const data = await response.json()
+			if (response.ok) {
+				setBalance(data.credits)
+			}
+		} catch (error) {
+			console.error('Error checking balance:', error)
+		} finally {
+			setCheckingBalance(false)
+		}
+	}
 
 	useEffect(() => {
 		// Load stored API key from localStorage
@@ -33,7 +56,12 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 			}
 		}
 		checkApiKey()
-	}, [])
+
+		// Check balance when API key changes
+		if (apiKey || hasBackendApiKey) {
+			checkBalance(apiKey)
+		}
+	}, [apiKey, hasBackendApiKey])
 
 	const validateApiKey = (key: string) => {
 		if (key && !/^sk-[a-zA-Z0-9]{48}$/.test(key)) {
@@ -43,6 +71,7 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 	}
 
 	const generateImage = async () => {
+		setBalance(null) // Reset balance before generating
 		try {
 			setLoading(true)
 			setError('')
@@ -79,6 +108,8 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 			if (onImageGenerated) {
 				onImageGenerated(data.imageUrl)
 			}
+			// Check updated balance after generation
+			checkBalance(apiKey)
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to generate image')
 		} finally {
@@ -88,6 +119,12 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 
 	return (
 		<div className='space-y-6'>
+			{(balance !== null || checkingBalance) && (
+				<div className='text-center text-sm text-black font-bold'>
+					<span className='text-dark-300'>Credits remaining: </span>
+					{checkingBalance ? 'Checking...' : <span className={balance && balance < 1 ? 'text-red-500 dark:text-red-400' : ''}>{balance?.toFixed(4) || '0'}</span>}
+				</div>
+			)}
 			<div className='max-w-xl mx-auto space-y-4'>
 				<div className='relative'>
 					<input
