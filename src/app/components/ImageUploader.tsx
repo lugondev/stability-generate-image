@@ -15,6 +15,12 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 	const [checkingApiKey, setCheckingApiKey] = useState(true)
 
 	useEffect(() => {
+		// Load stored API key from localStorage
+		const storedApiKey = localStorage.getItem('stabilityApiKey')
+		if (storedApiKey) {
+			setApiKey(storedApiKey)
+		}
+
 		const checkApiKey = async () => {
 			try {
 				const response = await fetch('/api/check-api-key')
@@ -88,8 +94,18 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 						type={showApiKey ? 'text' : 'password'}
 						value={apiKey}
 						onChange={(e) => {
-							setApiKey(e.target.value)
+							const newApiKey = e.target.value
+							setApiKey(newApiKey)
 							setApiKeyError('')
+							// Store API key in localStorage when it's valid or empty
+							const keyError = validateApiKey(newApiKey)
+							if (!keyError) {
+								if (newApiKey) {
+									localStorage.setItem('stabilityApiKey', newApiKey)
+								} else {
+									localStorage.removeItem('stabilityApiKey')
+								}
+							}
 						}}
 						placeholder={`Stability API Key ${hasBackendApiKey ? '(optional)' : '(required)'}`}
 						className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-800 dark:text-white dark:placeholder-gray-400 ${apiKeyError ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
