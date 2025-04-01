@@ -1,6 +1,6 @@
 'use client'
 
-import {useState} from 'react'
+import {useState, useEffect} from 'react'
 import Image from 'next/image'
 
 export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (url: string) => void}) {
@@ -8,18 +8,59 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 	const [error, setError] = useState('')
 	const [generatedImage, setGeneratedImage] = useState('')
 	const [prompt, setPrompt] = useState('')
+	const [apiKey, setApiKey] = useState('')
+	const [showApiKey, setShowApiKey] = useState(false)
+	const [apiKeyError, setApiKeyError] = useState('')
+	const [hasBackendApiKey, setHasBackendApiKey] = useState(false)
+	const [checkingApiKey, setCheckingApiKey] = useState(true)
+
+	useEffect(() => {
+		const checkApiKey = async () => {
+			try {
+				const response = await fetch('/api/check-api-key')
+				const data = await response.json()
+				setHasBackendApiKey(data.hasApiKey)
+			} catch (error) {
+				console.error('Error checking API key:', error)
+			} finally {
+				setCheckingApiKey(false)
+			}
+		}
+		checkApiKey()
+	}, [])
+
+	const validateApiKey = (key: string) => {
+		if (key && !/^sk-[a-zA-Z0-9]{48}$/.test(key)) {
+			return 'Invalid API key format. Should start with "sk-" followed by 48 characters.'
+		}
+		return ''
+	}
 
 	const generateImage = async () => {
 		try {
 			setLoading(true)
 			setError('')
+			setApiKeyError('')
+
+			if (!hasBackendApiKey && !apiKey) {
+				setApiKeyError('API key is required as no backend key is configured')
+				return
+			}
+
+			if (apiKey) {
+				const keyError = validateApiKey(apiKey)
+				if (keyError) {
+					setApiKeyError(keyError)
+					return
+				}
+			}
 
 			const response = await fetch('/api/generate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({prompt}),
+				body: JSON.stringify({prompt, apiKey}),
 			})
 
 			const data = await response.json()
@@ -41,12 +82,28 @@ export default function ImageUploader({onImageGenerated}: {onImageGenerated?: (u
 
 	return (
 		<div className='space-y-6'>
-			<div className='max-w-xl mx-auto space-y-2'>
+			<div className='max-w-xl mx-auto space-y-4'>
+				<div className='relative'>
+					<input
+						type={showApiKey ? 'text' : 'password'}
+						value={apiKey}
+						onChange={(e) => {
+							setApiKey(e.target.value)
+							setApiKeyError('')
+						}}
+						placeholder={`Stability API Key ${hasBackendApiKey ? '(optional)' : '(required)'}`}
+						className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-800 dark:text-white dark:placeholder-gray-400 ${apiKeyError ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
+					/>
+					{apiKeyError && <p className='text-red-500 text-sm mt-1'>{apiKeyError}</p>}
+					<button onClick={() => setShowApiKey(!showApiKey)} className='absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700' type='button'>
+						{showApiKey ? '🔒' : '👁️'}
+					</button>
+				</div>
 				<input type='text' value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder='Add a prompt' className='w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-800 dark:text-white dark:placeholder-gray-400' />
 				{prompt && <p className='text-sm text-gray-600 text-center italic'>Note: Prompt-based image editing will be implemented in a future update using a different AI model.</p>}
 			</div>
 			<div className='flex flex-wrap gap-4 justify-center'>
-				<button onClick={generateImage} disabled={loading} className='px-6 py-3 rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 font-semibold shadow-md disabled:opacity-50' title={prompt ? 'Coming Soon: The current API does not support prompts. We will implement prompt-based image editing in a future update using a different AI model.' : undefined}>
+				<button onClick={generateImage} disabled={loading || checkingApiKey || (!hasBackendApiKey && !apiKey)} className='px-6 py-3 rounded-lg text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 font-semibold shadow-md disabled:opacity-50' title={prompt ? 'Coming Soon: The current API does not support prompts. We will implement prompt-based image editing in a future update using a different AI model.' : undefined}>
 					{loading ? 'Generating...' : 'Generate Random Variation'}
 				</button>
 			</div>

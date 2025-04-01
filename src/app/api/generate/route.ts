@@ -5,10 +5,23 @@ const API_URL = 'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024
 
 export async function POST(req: NextRequest) {
 	try {
-		const { prompt } = await req.json();
+		const { prompt, apiKey } = await req.json();
 
-		if (!STABLE_DIFFUSION_API_KEY) {
-			throw new Error('STABLE_DIFFUSION_API_KEY is not configured');
+		// Validate API key format
+		const validateApiKey = (key: string) => {
+			if (!key) return false;
+			return /^sk-[a-zA-Z0-9]{48}$/.test(key);
+		};
+
+		// Use provided API key or fall back to environment variable
+		const finalApiKey = apiKey || STABLE_DIFFUSION_API_KEY;
+
+		if (!finalApiKey) {
+			throw new Error('No Stability API key provided. Please either configure STABLE_DIFFUSION_API_KEY in environment variables or provide an API key in the input field.');
+		}
+
+		if (!validateApiKey(finalApiKey)) {
+			throw new Error('Invalid API key format. Should start with "sk-" followed by 48 characters.');
 		}
 
 		const response = await fetch(API_URL, {
@@ -16,7 +29,7 @@ export async function POST(req: NextRequest) {
 			headers: {
 				'Content-Type': 'application/json',
 				Accept: 'application/json',
-				Authorization: `Bearer ${STABLE_DIFFUSION_API_KEY}`,
+				Authorization: `Bearer ${finalApiKey}`,
 			},
 			body: JSON.stringify({
 				text_prompts: [{ text: prompt }],
